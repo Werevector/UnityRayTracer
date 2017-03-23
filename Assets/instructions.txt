@@ -1,0 +1,12 @@
+open folder "unityRaytracer" in unity
+Doubleclick on myscene in "Projects" tab in Assets folder view
+In rendering window select "2D" in "Scene" tab
+You should see a green or magenta colored quad
+Zoom in or out on it using the scroll wheel.
+If it is magenta, the shader is not attached to the quad. To attach it do this
+	-drag "material" in Assets folder over to the magenta Quad in the rendering window
+	-drag "Raytracer0 - green" shader in Assets folder over to "material" in assets folder
+Whenever you implement a new functionality, store it as a a new shader. Then you can switch between them by dragging them over the material
+
+To open the shader in an editor, double click on it (Raytracer0 - green)
+When the code is changed and the file is saved in editor and unity gets focus, the change will show up immediately.
