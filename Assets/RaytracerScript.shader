@@ -20,7 +20,6 @@ Shader "Unlit/SingleColor"
 		typedef vector <fixed, 3> col3;
 		//TYPEDEFS_END
 
-		//STRUCTS
 		struct appdata
 		{
 			float4 vertex : POSITION;
@@ -40,93 +39,14 @@ Shader "Unlit/SingleColor"
 			o.uv = v.uv;
 			return o;
 		}
-		
-		
-		//STRUCTS_END
-
-
-		//CLASSES
-		
-		class ray
+				
+		float rand_1_05(in float2 uv)
 		{
-			void init(vec3 a, vec3 b) { A = a; B = b; }
-			vec3 point_at_parameter(float t) { return A + t*B; }
-			vec3 A;
-			vec3 B;
-		};
-
-		class material
-		{
-			void init(vec3 a) { albedo = a; }
-			bool scatter(ray r_in, vec3 p, vec3 normal, material mat, vec3 attenuation, ray scattered)
-			{
-				vec3 target = rec.p + rec.normal + random_in_unit_sphere();
-				scattered = ray(rec.p, target - rec.p);
-				attenuation = albedo;
-				return true;
-			}
-			vec3 albedo;
-		};
-
-		struct hit_record {
-			float t;
-			vec3 p;
-			vec3 normal;
-			material mat_ptr;
+			float2 noise = (frac(sin(dot(uv, float2(12.9898, 78.233)*2.0)) * 43758.5453));
+			return abs(noise.x + noise.y) * 0.5;
 		}
 
-		class hitable
-		{
-			void init(vec3 cen, float r, material mat) { center = cen; radius = r; mat_ptr = mat; }
-			bool hit(ray r, float t_min, float t_max, hit_record rec)
-			{
-				vec3 oc = r.origin() - center;
-				float a = dot(r.direction(), r.direction());
-				float b = dot(oc, r.direction());
-				float c = dot(oc, oc) - radius*radius;
-				float discriminant = b*b - a*c;
-
-				if (discriminant > 0) {
-					float temp = (-b - sqrt(b*b - a*c)) / a;
-					if (temp < t_max && temp > t_min) {
-						rec.t = temp;
-						rec.p = r.point_at_parameter(rec.t);
-						rec.normal = (rec.p - center) / radius;
-						rec.mat_ptr = mat_ptr;
-						return true;
-					}
-				}
-				return false;
-			}
-
-			vec3 center;
-			float radius;
-			material mat_ptr;
-		};
-
-		class hitable_list
-		{
-			void init(hitable[], int n) { list = l; list_size = n; }
-			bool hit(ray r, float t_min, float t_max, hit_record rec)
-			{
-				hit_record temp_rec;
-				bool hit_anything = false;
-				double closest_so_far = t_max;
-				for (int i = 0; i < list_size; i++)
-				{
-					if (list[i].hit(r, t_min, closest_so_far, temp_rec)) {
-						hit_anything = true;
-						closest_so_far = temp_rec.t;
-						rec = temp_rec;
-					}
-				}
-				return hit_anything;
-			}
-
-			hitable[] list;
-			int list_size;
-		};
-		//CLASSES_END
+		#define drand rand_1_05(1)
 
 		//TODO::IMPLEMENT DRAND
 		vec3 random_in_unit_disk() {
@@ -145,14 +65,111 @@ Shader "Unlit/SingleColor"
 			return p;
 		}
 
+		//CLASSES
+		class ray
+		{
+			void init(vec3 a, vec3 b) { A = a; B = b; }
+			vec3 point_at_parameter(float t) { return A + t*B; }
+			vec3 A;
+			vec3 B;
+		};
+
+		class material
+		{
+			void init(vec3 a) { albedo = a; }
+			bool scatter(ray r_in, vec3 p, vec3 normal, material mat, vec3 attenuation, ray scattered)
+			{
+				vec3 target = p + normal + random_in_unit_sphere();
+				scattered = ray(p, target - p);
+				attenuation = albedo;
+				return true;
+			}
+			vec3 albedo;
+		};
+
+		//struct hit_record {
+		//	float t;
+		//	vec3 p;
+		//	vec3 normal;
+		//	material mat_ptr;
+		//}
+
+		//sphere hitable
+		class hitable
+		{
+			void init(vec3 cen, float r, material mat) { center = cen; radius = r; mat_ptr = mat; }
+			bool hit(ray r, float t_min, float t_max, float rt, vec3 rp, vec3 rnormal, material rmat)
+			{
+				vec3 oc = r.origin() - center;
+				float a = dot(r.direction(), r.direction());
+				float b = dot(oc, r.direction());
+				float c = dot(oc, oc) - radius*radius;
+				float discriminant = b*b - a*c;
+
+				if (discriminant > 0) {
+					float temp = (-b - sqrt(b*b - a*c)) / a;
+					if (temp < t_max && temp > t_min) {
+						rt = temp;
+						rp = r.point_at_parameter(rt);
+						rnormal = (rp - center) / radius;
+						rmat = mat;
+						return true;
+					}
+				}
+				return false;
+			}
+
+			vec3 center;
+			float radius;
+			material mat;
+		};
+
+		class hitable_list
+		{
+			void init(hitable[], int n) { list = l; list_size = n; }
+			bool hit(ray r, float t_min, float t_max, float rt, vec3 rp, vec3 rnormal, material rmat)
+			{
+				//hit_record temp_rec;
+				float t_rt = 0.0;
+				vec3 t_rp = vec3(0, 0, 0);
+				vec3 t_rnormal = vec3(0, 1, 0);
+				material t_mat;
+				bool hit_anything = false;
+				double closest_so_far = t_max;
+				for (int i = 0; i < list_size; i++)
+				{
+					if (list[i].hit(r, t_min, closest_so_far, t_rt, t_rp, t_rnormal, t_mat)) {
+						hit_anything = true;
+						closest_so_far = temp_rec.t;
+						rt = t_rt;
+						rp = t_rp;
+						rnormal = t_rnormal;
+						rmat = t_mat;
+					}
+				}
+				return hit_anything;
+			}
+
+			hitable[] list;
+			int list_size;
+		};
+		//CLASSES_END
+
+		
+
 		FLT_MAX = 10000;
 		col3 color_from_ray(ray r, hitable world, int depth) 
 		{
-			hit_record rec;
-			if (world.hit(r, 0.001, FLT_MAX, rec)) {
+			//hit_record rec;
+			float t_rt = 0.0;
+			vec3 t_rp = vec3(0, 0, 0);
+			vec3 t_rnormal = vec3(0, 1, 0);
+			material t_mat;
+			
+			if (world.hit(r, 0.001, FLT_MAX, t_rt, t_rp, t_rnormal, t_mat)) {
 				ray scattered;
 				vec3 attenuation;
-				if (depth < 3 && rec.mat_ptr.scatter(r, rec, attenuation, scattered)) {
+				if (depth < 3 && t_mat.scatter(r, t_rt, t_rp, t_rnormal, t_mat, attenuation, scattered)) {
 					return attenuation*color_from_ray(scattered, world, depth + 1);
 				}
 				else {
