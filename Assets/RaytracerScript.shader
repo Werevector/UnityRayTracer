@@ -120,6 +120,42 @@ Shader "Unlit/SingleColor"
 			material mat;
 		};
 
+		const float M_PI = 3.141592;
+		class camera 
+		{
+			void init(vec3 lookfrom, vec3 lookat, vec3 vup, float vfov, float aspect, float aperture, float focus_dist) {
+				lens_radius = aperture / 2;
+				float theta = vfov*M_PI / 180;
+				float half_height = tan(theta / 2);
+				float half_width = aspect * half_height;
+				origin = lookfrom;
+				w = normalize(lookfrom - lookat);
+				u = normalize(cross(vup, w));
+				v = cross(w, u);
+
+				lower_left_corner = origin - half_width*focus_dist*u - half_height*focus_dist*v - focus_dist*w;
+				horizontal = 2 * half_width*focus_dist*u;
+				vertical = 2 * half_height*focus_dist*v;
+			}
+
+			ray get_ray(float s, float t) {
+				ray r;
+				//vec3 rd = lens_radius*random_in_unit_disk();
+				vec3 rd = lens_radius;
+				//vec3 offset = u* rd.x + v *rd.y;
+				vec3 offset = 0;
+				r.init(origin + offset, lower_left_corner + s*horizontal + t*vertical - origin - offset);
+				return r;
+			}
+
+			vec3 origin;
+			vec3 lower_left_corner;
+			vec3 horizontal;
+			vec3 vertical;
+			vec3 u, v, w;
+			float lens_radius;
+		};
+
 		const int FLT_MAX = 10000;
 		col3 color_from_ray(ray r, hitable world) 
 		{
@@ -131,9 +167,9 @@ Shader "Unlit/SingleColor"
 			int depth = 0;
 			const int max_depth = 3;
 			
-			if(world.hit(r, 0.001, FLT_MAX, rec, t_mat))
+			if(world.hit(current_ray, 0.001, FLT_MAX, rec, t_mat))
 			{
-				ray scattered;
+				/*ray scattered;
 				vec3 attenuation;
 				if (t_mat.scatter(r, rec, attenuation, scattered)) {
 					fcolor * attenuation;
@@ -160,13 +196,15 @@ Shader "Unlit/SingleColor"
 					else {
 						depth++;
 					}
-				} while (depth < max_depth);
+				} while (depth < max_depth);*/
+				fcolor = col3(1, 0, 0);
 			}
 			else
 			{
 				vec3 unit_direction = normalize(r.direction());
 				float t = 0.5*(unit_direction.y + 1.0);
 				fcolor = (1.0 - t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
+				//fcolor = current_ray.direction() - current_ray.origin();
 			}
 			return fcolor;
 		}
@@ -176,16 +214,24 @@ Shader "Unlit/SingleColor"
 		{
 
 		material m;
-		m.init(vec3(1, 0, 0));
+		m.init(col3(1, 0, 0));
 
 		hitable world;
-		world.init(vec3(0,0,-51), 1000, m);
+		world.init(vec3(0,0,0), 0.1, m);
 		
+		vec3 lookfrom = vec3(2, 2, 2);
+		vec3 lookat = vec3(0, 0, 0);
+		float dist_to_focus = 10.0;
+		float aperture = 0.1;
+		camera cam;
+		cam.init(lookfrom, lookat, vec3(0, 1, 0), 20, 8/16, aperture, dist_to_focus);
 
 		ray r;
-		r.init(vec3(0, 0, 0), vec3(i.uv.x, i.uv.y, 0));
-		col3 col = color_from_ray(r, world);
-		//col3 col = r.direction();
+		//r.init(vec3(0, 0, 0), vec3(i.uv.x, i.uv.y, 0));
+		r = cam.get_ray(i.uv.x, i.uv.y);
+		col3 col = col3(0, 0, 0);
+		col += color_from_ray(r, world);
+		//col += r.direction();
 		return fixed4(col,1);
 		}
 		
