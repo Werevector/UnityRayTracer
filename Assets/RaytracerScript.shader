@@ -10,9 +10,7 @@ Shader "Unlit/SingleColor"
 {
 	SubShader{ Pass	{
 		CGPROGRAM
-// Upgrade NOTE: excluded shader from DX11, OpenGL ES 2.0 because it uses unsized arrays
-#pragma exclude_renderers d3d11 gles
-		
+
 		//TYPEDEFS
 		#pragma vertex vert
 		#pragma fragment frag
@@ -40,54 +38,53 @@ Shader "Unlit/SingleColor"
 			return o;
 		}
 				
-		//float rand_1_05(in float2 uv)
-		//{
-		//	float2 noise = (frac(sin(dot(uv, float2(12.9898, 78.233)*2.0)) * 43758.5453));
-		//	return abs(noise.x + noise.y) * 0.5;
-		//}
+		float rand_1_05(in float2 uv)
+		{
+			float2 noise = (frac(sin(dot(uv, float2(12.9898, 78.233)*2.0)) * 43758.5453));
+			return abs(noise.x + noise.y) * 0.5;
+		}
 
-		//#define drand rand_1_05(1)
+		#define drand rand_1_05(1)
 
-		//TODO::IMPLEMENT DRAND
-		//vec3 random_in_unit_disk() {
-		//	vec3 p;
-		//	do {
-		//		p = 2.0*vec3(drand, drand, 0) - vec3(1, 1, 0);
-		//	} while (dot(p, p) >= 1.0);
-		//	return p;
-		//}
+		vec3 random_in_unit_disk() {
+			vec3 p;
+			do {
+				p = 2.0*vec3(drand, drand, 0) - vec3(1, 1, 0);
+			} while (dot(p, p) >= 1.0);
+			return p;
+		}
 
-		//vec3 random_in_unit_sphere() {
-		//	vec3 p;
-		//	do {
-		//		p = 2.0*vec3(drand, drand, drand) - vec3(1, 1, 1);
-		//	} while (length(p) >= 1.0);
-		//	return p;
-		//}
+		vec3 random_in_unit_sphere() {
+			vec3 p;
+			do {
+				p = 2.0*vec3(drand, drand, drand) - vec3(1, 1, 1);
+			} while (length(p) >= 1.0);
+			return p;
+		}
 
 		//CLASSES
-		//class ray
-		//{
-		//	void init(vec3 a, vec3 b) { A = a; B = b; }
-		//	vec3 point_at_parameter(float t) { return A + t*B; }
-		//	vec3 origin() { return A; }
-		//	vec3 direction() { return B; }
-		//	vec3 A;
-		//	vec3 B;
-		//};
+		class ray
+		{
+			void init(vec3 a, vec3 b) { A = a; B = b; }
+			vec3 point_at_parameter(float t) { return A + t*B; }
+			vec3 origin() { return A; }
+			vec3 direction() { return B; }
+			vec3 A;
+			vec3 B;
+		};
 
-		//class material
-		//{
-		//	void init(vec3 a) { albedo = a; }
-		//	bool scatter(ray r_in, vec3 p, vec3 normal, material mat, vec3 attenuation, ray scattered)
-		//	{
-		//		vec3 target = p + normal + random_in_unit_sphere();
-		//		scattered.init(p, target - p);
-		//		attenuation = albedo;
-		//		return true;
-		//	}
-		//	vec3 albedo;
-		//};
+		class material
+		{
+			void init(vec3 a) { albedo = a; }
+			bool scatter(ray r_in, vec3 p, vec3 normal, material mat, vec3 attenuation, ray scattered)
+			{
+				vec3 target = p + normal + random_in_unit_sphere();
+				scattered.init(p, target - p);
+				attenuation = albedo;
+				return true;
+			}
+			vec3 albedo;
+		};
 
 		//struct hit_record {
 		//	float t;
@@ -97,34 +94,34 @@ Shader "Unlit/SingleColor"
 		//}
 
 		//sphere hitable
-		//class hitable
-		//{
-		//	void init(vec3 cen, float r, material m) { center = cen; radius = r; mat = m; }
-		//	bool hit(ray r, float t_min, float t_max, float rt, vec3 rp, vec3 rnormal, material rmat)
-		//	{
-		//		vec3 oc = r.origin() - center;
-		//		float a = dot(r.direction(), r.direction());
-		//		float b = dot(oc, r.direction());
-		//		float c = dot(oc, oc) - radius*radius;
-		//		float discriminant = b*b - a*c;
+		class hitable
+		{
+			void init(vec3 cen, float r, material m) { center = cen; radius = r; mat = m; }
+			bool hit(ray r, float t_min, float t_max, float rt, vec3 rp, vec3 rnormal, material rmat)
+			{
+				vec3 oc = r.origin() - center;
+				float a = dot(r.direction(), r.direction());
+				float b = dot(oc, r.direction());
+				float c = dot(oc, oc) - radius*radius;
+				float discriminant = b*b - a*c;
 
-		//		if (discriminant > 0) {
-		//			float temp = (-b - sqrt(b*b - a*c)) / a;
-		//			if (temp < t_max && temp > t_min) {
-		//				rt = temp;
-		//				rp = r.point_at_parameter(rt);
-		//				rnormal = (rp - center) / radius;
-		//				rmat = mat;
-		//				return true;
-		//			}
-		//		}
-		//		return false;
-		//	}
+				if (discriminant > 0) {
+					float temp = (-b - sqrt(b*b - a*c)) / a;
+					if (temp < t_max && temp > t_min) {
+						rt = temp;
+						rp = r.point_at_parameter(rt);
+						rnormal = (rp - center) / radius;
+						rmat = mat;
+						return true;
+					}
+				}
+				return false;
+			}
 
-		//	vec3 center;
-		//	float radius;
-		//	material mat;
-		//};
+			vec3 center;
+			float radius;
+			material mat;
+		};
 
 		//struct teststruct 
 		//{
@@ -168,52 +165,37 @@ Shader "Unlit/SingleColor"
 
 		//
 
-		//const int FLT_MAX = 10000;
-		//col3 color_from_ray(ray r, hitable world, int depth) 
-		//{
-		//	//hit_record rec;
-		//	float t_rt = 0.0;
-		//	vec3 t_rp = vec3(0, 0, 0);
-		//	vec3 t_rnormal = vec3(0, 1, 0);
-		//	material t_mat;
-		//	
-		//	if (world.hit(r, 0.001, FLT_MAX, t_rt, t_rp, t_rnormal, t_mat)) {
-		//		ray scattered;
-		//		vec3 attenuation;
-		//		if (depth < 3 && t_mat.scatter(r, t_rp, t_rnormal, t_mat, attenuation, scattered)) {
-		//			return attenuation*color_from_ray(scattered, world, depth + 1);
-		//		}
-		//		else {
-		//			return vec3(0, 0, 0);
-		//		}
-		//	}
-		//	else {
-		//		vec3 unit_direction = normalize(r.direction());
-		//		float t = 0.5*(unit_direction.y + 1.0);
-		//		return (1.0 - t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
-		//	}
-		//}
+		const int FLT_MAX = 10000;
+		col3 color_from_ray(ray r, hitable world, int depth) 
+		{
+			//hit_record rec;
+			float t_rt = 0.0;
+			vec3 t_rp = vec3(0, 0, 0);
+			vec3 t_rnormal = vec3(0, 1, 0);
+			material t_mat;
+			
+			if (world.hit(r, 0.001, FLT_MAX, t_rt, t_rp, t_rnormal, t_mat)) {
+				ray scattered;
+				vec3 attenuation;
+				if (depth < 3 && t_mat.scatter(r, t_rp, t_rnormal, t_mat, attenuation, scattered)) {
+					return attenuation*color_from_ray(scattered, world, depth + 1);
+				}
+				else {
+					return vec3(0, 0, 0);
+				}
+			}
+			else {
+				vec3 unit_direction = normalize(r.direction());
+				float t = 0.5*(unit_direction.y + 1.0);
+				return (1.0 - t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
+			}
+		}
 
 		fixed4 frag(v2f i) : SV_Target
 		{
-			/*hitable[] list = new hitable[1];
-			hitable h;
-			material m;
-			m.init(vec3(1.0,0.0,0.0));
-			h.init(vec3(0, 0.5, 0), 0.5, m);
-			list[0] = h;
-			hitable_list hlist;
-			hlist.init(list, 1);
-			
-			ray r;
-			r.init(vec3(0, 0, 0), vec3(i.uv.x, i.uv.y, 0));*/
-			//vec3 p = r.point_at_parameter(2.0);
-			col3 colorOut = col3(1,1,1);
-			//colorOut = color_from_ray(r, hlist, 0);
+			col3 col = col3(0,1,0);
 
-
-
-			return fixed4(colorOut,1); 
+		return fixed4(col,1);
 		}
 		
 		ENDCG
