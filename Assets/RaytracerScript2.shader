@@ -59,6 +59,7 @@ Shader "Unlit/SingleColor"
 			do {
 				p = 2.0*vec3(drand, drand, drand) - vec3(1, 1, 1);
 			} while (length(p) >= 1.0);
+			return p;
 		}
 
 		class ray
@@ -186,8 +187,10 @@ Shader "Unlit/SingleColor"
 			rec.normal = vec3(0, 0, 0);
 
 			if (world.hit(r, 0.0, MAXFLOAT, rec)) {
-				
-				return 0.5*vec3(rec.normal.x + 1, rec.normal.y + 1, rec.normal.z + 1);
+				vec3 target = rec.p + rec.normal + random_in_unit_sphere();
+				ray rb;
+				rb.init(rec.p, target - rec.p);
+				return 0.5*color(rb, world);
 			}
 			else {
 				vec3 unit_direction = unit_vector(r.direction());
