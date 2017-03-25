@@ -52,7 +52,14 @@ Shader "Unlit/SingleColor"
 
 
 		/////////////////////////////////////////////
-		#define drand rand_1_05(1)
+		#define drand rand_1_05(float2(45.0f,25.0f))
+
+		vec3 random_in_unit_sphere() {
+			vec3 p;
+			do {
+				p = 2.0*vec3(drand, drand, drand) - vec3(1, 1, 1);
+			} while (length(p) >= 1.0);
+		}
 
 		class ray
 		{
@@ -86,15 +93,15 @@ Shader "Unlit/SingleColor"
 		};
 
 		interface hitable {
-			bool hit(ray r, float t_min, float t_max, hit_record rec);
+			bool hit(ray r, float t_min, float t_max, inout hit_record rec);
 		};
 
 		class sphere : hitable {
 			void init(vec3 cen, float r) { center = cen; radius = r; }
-			bool hit(ray r, float t_min, float t_max, hit_record rec) {
+			bool hit(ray r, float t_min, float t_max, inout hit_record rec) {
 				vec3 oc = r.origin() - center;
 				float a = dot(r.direction(), r.direction());
-				float b = 2.0 * dot(oc, r.direction());
+				float b = dot(oc, r.direction());
 				float c = dot(oc, oc) - radius*radius;
 				float discriminant = b*b - a*c;
 				if (discriminant > 0) {
@@ -120,28 +127,92 @@ Shader "Unlit/SingleColor"
 			float radius;
 		};
 
-		col3 color(ray r) 
-		{
-			float t = hit_sphere(vec3(0, 0, -1), 0.5, r);
-			if (t > 0.0) {
-				vec3 N = unit_vector(r.point_at_parameter(t) - vec3(0, 0, -1));
-				return 0.5*vec3(N.x + 1, N.y + 1, N.z + 1);
+		class hitable_list : hitable {
+			void init() { count = 0; }
+			void add(sphere s) {
+				items[count] = s;
+				count++;
 			}
-			vec3 unit_direction = unit_vector(r.direction());
-			t = 0.5*(unit_direction.y + 1.0);
-			return (1.0 - t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
-			//return lerp(vec3(1.0, 1.0, 1.0), vec3(0.5, 0.6, 1.0), t);
-		}
+			bool hit(ray r, float t_min, float t_max, inout hit_record rec) {
+				hit_record temp_rec;
+				temp_rec.t = 0;
+				temp_rec.p = vec3(0, 0, 0);
+				temp_rec.normal = vec3(0, 0, 0);
+
+				bool hit_anything = false;
+				float closest_so_far = t_max;
+				for (int i = 0; i < count; i++) {
+					if (items[i].hit(r, t_min, closest_so_far, temp_rec)) {
+						hit_anything = true;
+						closest_so_far = temp_rec.t;
+						rec = temp_rec;
+					}
+				}
+				return hit_anything;
+			}
+
+			//hitables
+			int		count;
+			int		length;
+			int		index[2];
+			sphere  items[2];
+		};
+
+		class camera {
+			void init() {
+				lower_left_corner = vec3(-2.0, -1.0, -1.0);
+				horizontal = vec3(4.0, 0.0, 0.0);
+				vertical = vec3(0.0, 2.0, 0.0);
+				origin = vec3(0.0, 0.0, 0.0);
+			}
+			ray get_ray(float u, float v) {
+				ray r;
+				r.init(origin, lower_left_corner + u*horizontal + v*vertical - origin);
+				return r;
+			}
+			vec3 lower_left_corner;
+			vec3 horizontal;
+			vec3 vertical;
+			vec3 origin;
+		};
+
 		
+		col3 color(ray r, hitable_list world) 
+		{
+			const float MAXFLOAT = 1.7014116317805962808001687976863 * pow(10, 38);
+			hit_record rec;
+			rec.t = 0;
+			rec.p = vec3(0, 0, 0);
+			rec.normal = vec3(0, 0, 0);
+
+			if (world.hit(r, 0.0, MAXFLOAT, rec)) {
+				
+				return 0.5*vec3(rec.normal.x + 1, rec.normal.y + 1, rec.normal.z + 1);
+			}
+			else {
+				vec3 unit_direction = unit_vector(r.direction());
+				float t = 0.5*(unit_direction.y + 1.0);
+				return (1.0 - t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
+			}
+		}
+
 		fixed4 frag(v2f i) : SV_Target
 		{
-		vec3 lower_left_corner = vec3(-2.0, -1.0, -1.0);
-		vec3 horizontal = vec3(4.0, 0.0, 0.0);
-		vec3 vertical = vec3(0.0, 2.0, 0.0);
-		vec3 origin = vec3(0.0, 0.0, 0.0);
-		ray r;
-		r.init(origin, lower_left_corner + i.uv.x*horizontal + i.uv.y*vertical);
-		col3 col = color(r);
+		
+		
+		camera cam;
+		cam.init();
+		
+		hitable_list world;
+		world.init();
+		sphere s;
+		s.init(vec3(0, 0, -1), 0.5);
+		world.add(s);
+		s.init(vec3(0, -100.5, -1), 100);
+		world.add(s);
+		
+		ray r = cam.get_ray(i.uv.x, i.uv.y);
+		col3 col = color(r, world);
 		return fixed4(col,1);
 		}
 		
