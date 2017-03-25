@@ -37,6 +37,12 @@ Shader "Unlit/SingleColor"
 			o.uv = v.uv;
 			return o;
 		}
+
+		struct hit_record {
+			float t;
+			vec3 p;
+			vec3 normal;
+		};
 				
 		float rand_1_05(in float2 uv)
 		{
@@ -61,8 +67,7 @@ Shader "Unlit/SingleColor"
 			} while (length(p) >= 1.0);
 			return p;
 		}
-
-		//CLASSES
+		
 		class ray
 		{
 			void init(vec3 a, vec3 b) { A = a; B = b; }
@@ -76,28 +81,20 @@ Shader "Unlit/SingleColor"
 		class material
 		{
 			void init(vec3 a) { albedo = a; }
-			bool scatter(ray r_in, vec3 p, vec3 normal, material mat, vec3 attenuation, ray scattered)
+			bool scatter(ray r_in, hit_record rec, vec3 attenuation, ray scattered)
 			{
-				vec3 target = p + normal + random_in_unit_sphere();
-				scattered.init(p, target - p);
+				vec3 target = rec.p + rec.normal + random_in_unit_sphere();
+				scattered.init(rec.p, target - rec.p);
 				attenuation = albedo;
 				return true;
 			}
 			vec3 albedo;
 		};
 
-		//struct hit_record {
-		//	float t;
-		//	vec3 p;
-		//	vec3 normal;
-		//	material mat_ptr;
-		//}
-
-		//sphere hitable
 		class hitable
 		{
 			void init(vec3 cen, float r, material m) { center = cen; radius = r; mat = m; }
-			bool hit(ray r, float t_min, float t_max, float rt, vec3 rp, vec3 rnormal, material rmat)
+			bool hit(ray r, float t_min, float t_max, hit_record rec, material rmat)
 			{
 				vec3 oc = r.origin() - center;
 				float a = dot(r.direction(), r.direction());
@@ -108,9 +105,9 @@ Shader "Unlit/SingleColor"
 				if (discriminant > 0) {
 					float temp = (-b - sqrt(b*b - a*c)) / a;
 					if (temp < t_max && temp > t_min) {
-						rt = temp;
-						rp = r.point_at_parameter(rt);
-						rnormal = (rp - center) / radius;
+						rec.t = temp;
+						rec.p = r.point_at_parameter(rec.t);
+						rec.normal = (rec.p - center) / radius;
 						rmat = mat;
 						return true;
 					}
@@ -123,61 +120,16 @@ Shader "Unlit/SingleColor"
 			material mat;
 		};
 
-		//struct teststruct 
-		//{
-		//	vec3 data;
-		//};
-
-		//class hitable_list
-		//{
-		//	void init(teststruct[], int n)
-		//	{ 
-		//		list = (teststruct**)malloc(sizeof(ID3D11ClassInstance*) * n);
-		//		list_size = n; 
-		//	}
-		//	bool hit(ray r, float t_min, float t_max, float rt, vec3 rp, vec3 rnormal, material rmat)
-		//	{
-		//		//hit_record temp_rec;
-		//		float t_rt = 0.0;
-		//		vec3 t_rp = vec3(0, 0, 0);
-		//		vec3 t_rnormal = vec3(0, 1, 0);
-		//		material t_mat;
-		//		bool hit_anything = false;
-		//		double closest_so_far = t_max;
-		//		for (int i = 0; i < list_size; i++)
-		//		{
-		//			if (list[i].hit(r, t_min, closest_so_far, t_rt, t_rp, t_rnormal, t_mat)) {
-		//				hit_anything = true;
-		//				closest_so_far = temp_rec.t;
-		//				rt = t_rt;
-		//				rp = t_rp;
-		//				rnormal = t_rnormal;
-		//				rmat = t_mat;
-		//			}
-		//		}
-		//		return hit_anything;
-		//	}
-
-		//	teststruct** list;
-		//	int list_size;
-		//};
-		//CLASSES_END
-
-		//
-
 		const int FLT_MAX = 10000;
 		col3 color_from_ray(ray r, hitable world, int depth) 
 		{
-			//hit_record rec;
-			float t_rt = 0.0;
-			vec3 t_rp = vec3(0, 0, 0);
-			vec3 t_rnormal = vec3(0, 1, 0);
+			hit_record rec;
 			material t_mat;
 			
-			if (world.hit(r, 0.001, FLT_MAX, t_rt, t_rp, t_rnormal, t_mat)) {
+			if (world.hit(r, 0.001, FLT_MAX, rec, t_mat)) {
 				ray scattered;
 				vec3 attenuation;
-				if (depth < 3 && t_mat.scatter(r, t_rp, t_rnormal, t_mat, attenuation, scattered)) {
+				if (depth < 3 && t_mat.scatter(r, rec, attenuation, scattered)) {
 					return attenuation*color_from_ray(scattered, world, depth + 1);
 				}
 				else {
@@ -193,7 +145,7 @@ Shader "Unlit/SingleColor"
 
 		fixed4 frag(v2f i) : SV_Target
 		{
-			col3 col = col3(0,1,0);
+			col3 col = col3(1,1,0);
 
 		return fixed4(col,1);
 		}
