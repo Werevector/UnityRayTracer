@@ -121,27 +121,56 @@ Shader "Unlit/SingleColor"
 		};
 
 		const int FLT_MAX = 10000;
-		col3 color_from_ray(ray r, hitable world, int depth) 
+		col3 color_from_ray(ray r, hitable world) 
 		{
+			col3 fcolor = col3(0,0,0);
 			hit_record rec;
 			material t_mat;
 			
-			if (world.hit(r, 0.001, FLT_MAX, rec, t_mat)) {
+			ray current_ray = r;
+			int depth = 0;
+			const int max_depth = 3;
+			
+			if(world.hit(r, 0.001, FLT_MAX, rec, t_mat))
+			{
 				ray scattered;
 				vec3 attenuation;
-				if (depth < 3 && t_mat.scatter(r, rec, attenuation, scattered)) {
-					return attenuation*color_from_ray(scattered, world, depth + 1);
+				if (t_mat.scatter(r, rec, attenuation, scattered)) {
+					fcolor * attenuation;
+					current_ray = scattered;
+					depth++;
+					fcolor = col3(1, 0, 0);
 				}
-				else {
-					return vec3(0, 0, 0);
-				}
+				
+				do
+				{
+					if (world.hit(r, 0.001, FLT_MAX, rec, t_mat)) {
+						ray scattered;
+						vec3 attenuation;
+						if (t_mat.scatter(r, rec, attenuation, scattered)) {
+							fcolor * attenuation;
+							current_ray = scattered;
+							depth++;
+						}
+						else {
+							fcolor * col3(0, 0, 0);
+							depth++;
+						}
+					}
+					else {
+						depth++;
+					}
+				} while (depth < max_depth);
 			}
-			else {
+			else
+			{
 				vec3 unit_direction = normalize(r.direction());
 				float t = 0.5*(unit_direction.y + 1.0);
-				return (1.0 - t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
+				fcolor = (1.0 - t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
 			}
+			return fcolor;
 		}
+
 
 		fixed4 frag(v2f i) : SV_Target
 		{
@@ -150,13 +179,13 @@ Shader "Unlit/SingleColor"
 		m.init(vec3(1, 0, 0));
 
 		hitable world;
-		world.init(vec3(0,0,1), 2, m);
+		world.init(vec3(0,0,-51), 1000, m);
 		
 
 		ray r;
-		r.init(vec3(0, 0, 0), vec3(i.uv.x, i.uv.y, 1));
-		col3 col = color_from_ray(r, world, 0);
-
+		r.init(vec3(0, 0, 0), vec3(i.uv.x, i.uv.y, 0));
+		col3 col = color_from_ray(r, world);
+		//col3 col = r.direction();
 		return fixed4(col,1);
 		}
 		
