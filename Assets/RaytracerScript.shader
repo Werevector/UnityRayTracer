@@ -145,7 +145,17 @@ Shader "Unlit/SingleColor"
 
 		fixed4 frag(v2f i) : SV_Target
 		{
-			col3 col = col3(1,1,0);
+
+		material m;
+		m.init(vec3(1, 0, 0));
+
+		hitable world;
+		world.init(vec3(0,0,1), 2, m);
+		
+
+		ray r;
+		r.init(vec3(0, 0, 0), vec3(i.uv.x, i.uv.y, 1));
+		col3 col = color_from_ray(r, world, 0);
 
 		return fixed4(col,1);
 		}
