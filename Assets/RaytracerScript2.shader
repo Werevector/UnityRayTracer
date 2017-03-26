@@ -65,6 +65,14 @@ Shader "Unlit/SingleColor"
 			return p;
 		}
 
+		vec3 random_in_unit_disk(float2 uv) {
+			vec3 p;
+			do {
+				p = 2.0*vec3(rand_1_05(uv), rand_1_05(uv + 5), 0) - vec3(1, 1, 0);
+			} while (dot(p, p) >= 1.0);
+			return p;
+		}
+
 		class ray
 		{
 			void init(vec3 a, vec3 b) { A = a; B = b; }
@@ -270,26 +278,35 @@ Shader "Unlit/SingleColor"
 
 
 		class camera {
-			void init(float vfov, float aspect) {
+			void init(in vec3 lookfrom, in vec3 lookat, in vec3 vup, in float vfov, in float aspect, in float aperture, in float focus_dist) {
 				float M_PI = 3.141592;
+				
+				lens_radius = aperture / 2;
 				float theta = vfov*M_PI / 180;
 				float half_height = tan(theta / 2);
 				float half_width = aspect * half_height;
-				
-				lower_left_corner = vec3(-half_width, -half_height, -1.0);
-				horizontal = vec3(2*half_width, 0.0, 0.0);
-				vertical = vec3(0.0, 2*half_height, 0.0);
-				origin = vec3(0.0, 0.0, 0.0);
+				origin = lookfrom;
+				w = unit_vector(lookfrom - lookat);
+				u = unit_vector(cross(vup, w));
+				v = cross(w, u);
+
+				lower_left_corner = origin - half_width*focus_dist*u - half_height*focus_dist*v - focus_dist*w;
+				horizontal = 2*half_width*focus_dist*u;
+				vertical = 2*half_height*focus_dist*v;
 			}
-			ray get_ray(float u, float v) {
+			ray get_ray(float s, float t, in float2 uv) {
+				vec3 rd = lens_radius*random_in_unit_disk(uv);
+				vec3 offset = u * rd.x + v * rd.y;
 				ray r;
-				r.init(origin, lower_left_corner + u*horizontal + v*vertical - origin);
+				r.init(origin + offset, lower_left_corner + s*horizontal + t*vertical - origin - offset);
 				return r;
 			}
+			vec3 origin;
 			vec3 lower_left_corner;
 			vec3 horizontal;
 			vec3 vertical;
-			vec3 origin;
+			vec3 u, v, w;
+			float lens_radius;
 		};
 
 		col3 background(ray r) {
@@ -348,43 +365,36 @@ Shader "Unlit/SingleColor"
 		{
 		float M_PI = 3.141592;
 		float R = cos(M_PI / 4);
+		
+		vec3 lookfrom = vec3(3, 3, 2);
+		vec3 lookat = vec3(0, 0, -1);
+		float dist_to_focus = length(lookfrom-lookat);
+		float aperture = 2.0;
 		camera cam;
-		cam.init(90, 16.f/8.f);
+		cam.init(lookfrom, lookat, vec3(0,1,0), 20, 16.f/8.f, aperture, dist_to_focus);
 		
 		hitable_list world;
 		world.init();
 
 		material m;
-		m.init(vec3(0,0,1), 0);
-
-		sphere s;
-		s.init(vec3(-R, 0.0, -1.0), R, m);
-		world.add(s);
-
-		m.init(vec3(1, 0, 0), 0);
-
-		s.init(vec3(R, 0.0, -1.0), R, m);
-		world.add(s);
-
-		/*material m;
 		m.init(_SphereCol, 0);
 
 		sphere s;
 		s.init(_SpherePos, 0.5, m);
-		world.add(s);*/
+		world.add(s);
 
 		//material << (color, type, fuzz(optional))
-		/*m.init(vec3(0.0, 0.0, 1.0), 1, 0.5);
+		m.init(vec3(0.0, 0.0, 1.0), 1, 0.5);
 		s.init(vec3(-1, 0, -1), 0.5, m);
 		world.add(s);
 
 		m.init(vec3(1, 1, 1), 2);
 		s.init(vec3(1, 0, -1), 0.5, m);
-		world.add(s);*/
+		world.add(s);
 
-		/*m.init(_FloorCol, 0);
+		m.init(_FloorCol, 0);
 		s.init(vec3(0, -100.5, -1), 100, m);
-		world.add(s);*/
+		world.add(s);
 
 		int samples = 60;
 		col3 col = col3(0.0, 0.0, 0.0);
@@ -392,7 +402,7 @@ Shader "Unlit/SingleColor"
 		for (int sa = 0; sa < samples; sa++ ) {
 			float xr = rand_1_05(i.uv + sa) / 110;
 			float yr = rand_1_05(i.uv + sa + 1) / 110;
-			ray r = cam.get_ray(i.uv.x + xr, i.uv.y + yr);
+			ray r = cam.get_ray(i.uv.x + xr, i.uv.y + yr, i.uv + sa);
 			col += color(r, world, i.uv+sa);
 		}
 		col /= (float)samples;
