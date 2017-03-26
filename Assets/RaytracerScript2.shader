@@ -10,9 +10,11 @@ Shader "Unlit/SingleColor"
 {
 	Properties
 	{
-		_SpherePos("sphere position", Vector) = (0, 0, -1, 1)
+		_SpherePos("sphere position", Vector) = (-4, 1, 0, 1)
 		_SphereCol("sphere color", Color) = (1,0,0,1)
 		_FloorCol("Floor sphere color", Color) = (0.5,0.5,0.5,1)
+		_CameraFrom("Camera Origin", Vector) = (13, 2, 3, 1)
+		_CameraAt("Camera Lookat", Vector) = (0, 0, 0, 1)
 	}
 	SubShader{ Pass	{
 		CGPROGRAM
@@ -273,7 +275,7 @@ Shader "Unlit/SingleColor"
 			//hitables
 			int		count;
 			int		length;
-			sphere  items[4];
+			sphere  items[5];
 		};
 
 
@@ -357,34 +359,111 @@ Shader "Unlit/SingleColor"
 			
 		}
 
+		//PROPERTY VALUES
 		float4 _SpherePos;
 		fixed4 _SphereCol;
 		fixed4 _FloorCol;
+		float4 _CameraFrom;
+		float4 _CameraAt;
+		//PROPERTY VALUES
+
+		/*hitable_list random_scene() {
+			float2 uv = float2(1.5, 2);
+
+			int n = 2;
+			hitable_list list;
+			list.init();
+			
+			sphere s;
+			material m;
+			m.init(_FloorCol, 0);
+			s.init(vec3(0, -1000, 0), 1000, m);
+			list.add(s);
+
+			int nr = 1;
+			for (int a = -nr; a < nr; a++) {
+				for (int b = -nr; b < nr; b++) {
+					float choose_mat = rand_1_05(uv+5);
+					vec3 center = vec3(a + 0.9*rand_1_05(uv + 10), 0.2, b + 0.9*rand_1_05(uv + 15));
+					if (length(center - vec3(4, 0.2, 0)) > 0.9) {
+						if (choose_mat < 0.8) {
+							m.init(vec3(rand_1_05(uv + 20)*rand_1_05(uv + 20), rand_1_05(uv + 25)*rand_1_05(uv + 25), rand_1_05(uv + 30)*rand_1_05(uv + 30)), 0);
+							s.init(center, 0.2, m);
+							list.add(s);
+						}
+					}
+					else if (choose_mat < 0.95) {
+						m.init(vec3(0.5*(1 + rand_1_05(uv + 45)), 0.5*(1 + rand_1_05(uv + 50)), 0.5*(1 + rand_1_05(uv + 55))), 1, 0.5*rand_1_05(uv + 40)/100);
+						s.init(center, 0.2, m);
+						list.add(s);
+					}
+					else {
+						m.init(vec3(1,1,1), 2);
+						s.init(center, 0.2, m);
+						list.add(s);
+					}
+				}
+			}
+			
+			m.init(vec3(1, 1, 1), 2);
+			s.init(vec3(0, 1, 0), 1.0, m);
+			list.add(s);
+
+			m.init(vec3(0.4, 0.2, 0.1), 0);
+			s.init(vec3(-4, 1, 0), 1.0, m);
+			list.add(s);
+
+			m.init(vec3(0.7, 0.6, 0.5), 1, 0.0);
+			s.init(vec3(4, 1, 0), 1.0, m);
+			list.add(s);
+
+			return list;
+		}*/
 
 		fixed4 frag(v2f i) : SV_Target
 		{
 		float M_PI = 3.141592;
 		float R = cos(M_PI / 4);
 		
-		vec3 lookfrom = vec3(3, 3, 2);
-		vec3 lookat = vec3(0, 0, -1);
-		float dist_to_focus = length(lookfrom-lookat);
-		float aperture = 2.0;
+		//vec3 lookfrom = vec3(13, 2, 3);
+		vec3 lookfrom = _CameraFrom;
+		vec3 lookat = _CameraAt;
+		//float dist_to_focus = length(lookfrom-lookat);
+		float dist_to_focus = 10.0f;
+		float aperture = 0.1f;
 		camera cam;
 		cam.init(lookfrom, lookat, vec3(0,1,0), 20, 16.f/8.f, aperture, dist_to_focus);
 		
 		hitable_list world;
 		world.init();
-
+		//world = random_scene();
 		material m;
+		sphere s;
+		m.init(vec3(1, 1, 1), 2);
+		s.init(vec3(0, 1, 0), 1.0, m);
+		world.add(s);
+
+		m.init(vec3(0.4, 0.2, 0.1), 0);
+		s.init(_SpherePos, 1.0, m);
+		world.add(s);
+
+		m.init(vec3(0.7, 0.6, 0.5), 1, 0.0);
+		s.init(vec3(4, 1, 0), 1.0, m);
+		world.add(s);
+
+		m.init(_FloorCol, 0);
+		s.init(vec3(0, -1000, 0), 1000, m);
+		world.add(s);
+
+		/*material m;
 		m.init(_SphereCol, 0);
 
 		sphere s;
 		s.init(_SpherePos, 0.5, m);
-		world.add(s);
+		world.add(s);*/
 
 		//material << (color, type, fuzz(optional))
-		m.init(vec3(0.0, 0.0, 1.0), 1, 0.5);
+		/*m.init(vec3(0.0, 0.0, 1.0), 1, 0.5);
 		s.init(vec3(-1, 0, -1), 0.5, m);
 		world.add(s);
 
@@ -394,7 +473,7 @@ Shader "Unlit/SingleColor"
 
 		m.init(_FloorCol, 0);
 		s.init(vec3(0, -100.5, -1), 100, m);
-		world.add(s);
+		world.add(s);*/
 
 		int samples = 60;
 		col3 col = col3(0.0, 0.0, 0.0);
