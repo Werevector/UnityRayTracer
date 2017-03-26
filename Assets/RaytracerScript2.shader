@@ -15,6 +15,7 @@ Shader "Unlit/SingleColor"
 		#pragma vertex vert
 		#pragma fragment frag
 		typedef vector <float, 3> vec3;
+		typedef vector <float, 2> vec2;
 		typedef vector <fixed, 3> col3;
 		//TYPEDEFS_END
 
@@ -49,15 +50,10 @@ Shader "Unlit/SingleColor"
 			return v / length(v);
 		}
 
-
-
-		/////////////////////////////////////////////
-		#define drand rand_1_05(float2(45.0f,25.0f))
-
-		vec3 random_in_unit_sphere() {
+		vec3 random_in_unit_sphere(float2 uv) {
 			vec3 p;
 			do {
-				p = 2.0*vec3(drand, drand, drand) - vec3(1, 1, 1);
+				p = 2.0*vec3(rand_1_05(uv), rand_1_05(uv+5), rand_1_05(uv+10)) - vec3(1, 1, 1);
 			} while (length(p) >= 1.0);
 			return p;
 		}
@@ -72,25 +68,11 @@ Shader "Unlit/SingleColor"
 			vec3 B;
 		};
 
-		float hit_sphere(vec3 center, float radius, ray r)
-		{
-			vec3 oc = r.origin() - center;
-			float a = dot(r.direction(), r.direction());
-			float b = 2.0 * dot(oc, r.direction());
-			float c = dot(oc, oc) - radius*radius;
-			float discriminant = b*b - 4*a*c;
-			if (discriminant < 0) {
-				return -1.0;
-			}
-			else {
-				return (-b - sqrt(discriminant)) / (2.0*a);
-			}
-		}
-
 		struct hit_record {
 			float t;
 			vec3 p;
 			vec3 normal;
+			float2 uv;
 		};
 
 		interface hitable {
@@ -139,6 +121,7 @@ Shader "Unlit/SingleColor"
 				temp_rec.t = 0;
 				temp_rec.p = vec3(0, 0, 0);
 				temp_rec.normal = vec3(0, 0, 0);
+				temp_rec.uv = rec.uv;
 
 				bool hit_anything = false;
 				float closest_so_far = t_max;
@@ -155,8 +138,7 @@ Shader "Unlit/SingleColor"
 			//hitables
 			int		count;
 			int		length;
-			int		index[2];
-			sphere  items[2];
+			sphere  items[3];
 		};
 
 		class camera {
@@ -177,31 +159,46 @@ Shader "Unlit/SingleColor"
 			vec3 origin;
 		};
 
+		col3 background(ray r) {
+			vec3 unit_direction = unit_vector(r.direction());
+			float t = 0.5*(unit_direction.y + 1.0);
+			return (1.0 - t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
+		}
 		
-		col3 color(ray r, hitable_list world) 
+		col3 color(ray r, hitable_list world, float2 uv) 
 		{
 			const float MAXFLOAT = 1.7014116317805962808001687976863 * pow(10, 38);
 			hit_record rec;
 			rec.t = 0;
 			rec.p = vec3(0, 0, 0);
 			rec.normal = vec3(0, 0, 0);
+			rec.uv = uv;
 
-			if (world.hit(r, 0.0, MAXFLOAT, rec)) {
-				vec3 target = rec.p + rec.normal + random_in_unit_sphere();
-				ray rb;
-				rb.init(rec.p, target - rec.p);
-				return 0.5*color(rb, world);
-			}
-			else {
-				vec3 unit_direction = unit_vector(r.direction());
-				float t = 0.5*(unit_direction.y + 1.0);
-				return (1.0 - t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
-			}
+			col3 color = background(r);
+			//col3 color = random_in_unit_sphere(uv);
+			int depth = 0;
+			bool done = false;
+			do {
+				if (world.hit(r, 0.001, MAXFLOAT, rec)) {
+					vec3 target = rec.p + rec.normal + random_in_unit_sphere(uv);
+					ray rb;
+					rb.init(rec.p, target - rec.p);
+					r = rb;
+					color *= 0.5;
+					depth++;
+				}
+				else {
+					done = true;
+					return color;
+				}
+			} while (!done && depth < 200);
+			
+			return color;
+			
 		}
 
 		fixed4 frag(v2f i) : SV_Target
 		{
-		
 		
 		camera cam;
 		cam.init();
@@ -213,9 +210,18 @@ Shader "Unlit/SingleColor"
 		world.add(s);
 		s.init(vec3(0, -100.5, -1), 100);
 		world.add(s);
-		
-		ray r = cam.get_ray(i.uv.x, i.uv.y);
-		col3 col = color(r, world);
+
+		int samples = 70;
+		col3 col = col3(0.0, 0.0, 0.0);
+		for (int sa = 0; sa < samples; sa++ ) {
+			float xr = rand_1_05(i.uv + sa) / 150;
+			float yr = rand_1_05(i.uv + sa + 1) / 150;
+			ray r = cam.get_ray(i.uv.x + xr, i.uv.y + yr);
+			col += color(r, world, i.uv+sa);
+		}
+		col /= (float)samples;
+		//col = col3(sqrt(col.x), sqrt(col.y), sqrt(col.z));
+
 		return fixed4(col,1);
 		}
 		
