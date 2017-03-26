@@ -10,10 +10,10 @@ Shader "Unlit/SingleColor"
 {
 	Properties
 	{
-		_SpherePos("sphere position", Vector) = (-4, 1, 0, 1)
+		_SpherePos("sphere position", Vector) = (1, 1, 1, 1)
 		_SphereCol("sphere color", Color) = (1,0,0,1)
 		_FloorCol("Floor sphere color", Color) = (0.5,0.5,0.5,1)
-		_CameraFrom("Camera Origin", Vector) = (13, 2, 3, 1)
+		_CameraFrom("Camera Origin", Vector) = (5.9, 3.85, 14.02, 1)
 		_CameraAt("Camera Lookat", Vector) = (0, 0, 0, 1)
 	}
 	SubShader{ Pass	{
@@ -439,12 +439,16 @@ Shader "Unlit/SingleColor"
 		//world = random_scene();
 		material m;
 		sphere s;
-		m.init(vec3(1, 1, 1), 2);
-		s.init(vec3(0, 1, 0), 1.0, m);
+		m.init(vec3(-4, 1, 0), 2);
+		s.init(vec3(-1.5, 1, 2), 1.0, m);
 		world.add(s);
 
-		m.init(vec3(0.4, 0.2, 0.1), 0);
+		m.init(_SphereCol, 0);
 		s.init(_SpherePos, 1.0, m);
+		world.add(s);
+
+		m.init(vec3(0.5, 0.0, 0.5), 0);
+		s.init(vec3(4, 0.3, 2), 0.3, m);
 		world.add(s);
 
 		m.init(vec3(0.7, 0.6, 0.5), 1, 0.0);
