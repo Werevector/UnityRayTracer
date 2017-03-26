@@ -68,6 +68,8 @@ Shader "Unlit/SingleColor"
 			vec3 B;
 		};
 
+
+
 		struct hit_record {
 			float t;
 			vec3 p;
@@ -75,13 +77,47 @@ Shader "Unlit/SingleColor"
 			float2 uv;
 		};
 
+		vec3 reflect(in vec3 v, in vec3 n) {
+			return v - 2 * dot(v, n)*n;
+		}
+
+		interface material {
+			bool scatter(in ray r, inout hit_record rec, inout vec3 attenuation, inout ray scattered);
+		};
+
+		class lambertian : material {
+			void init(in vec3 a) { albedo = a; }
+			bool scatter(in ray r_in, inout hit_record rec, inout vec3 attenuation, inout ray scattered) {
+				vec3 target = rec.p + rec.normal + random_in_unit_sphere(rec.uv);
+				ray s;
+				s.init(rec.p, target - rec.p);
+				scattered = s;
+				attenuation = albedo;
+				return true;
+			}
+			vec3 albedo;
+		};
+
+		class metal : material {
+			void init(in vec3 a) { albedo = a; }
+			bool scatter(in ray r_in, inout hit_record rec, inout vec3 attenuation, inout ray scattered) {
+				vec3 reflected = reflect(unit_vector(r_in.direction()), rec.normal);
+				ray s;
+				s.init(rec.p, reflected);
+				scattered = s;
+				attenuation = albedo;
+				return (dot(scattered.direction(), rec.normal) > 0);
+			}
+			vec3 albedo;
+		};
+
 		interface hitable {
-			bool hit(ray r, float t_min, float t_max, inout hit_record rec);
+			bool hit(ray r, float t_min, float t_max, inout hit_record rec, inout lambertian mat_ptr);
 		};
 
 		class sphere : hitable {
-			void init(vec3 cen, float r) { center = cen; radius = r; }
-			bool hit(ray r, float t_min, float t_max, inout hit_record rec) {
+			void init(vec3 cen, float r, lambertian m) { center = cen; radius = r; mat = m; }
+			bool hit(ray r, float t_min, float t_max, inout hit_record rec, inout lambertian mat_ptr) {
 				vec3 oc = r.origin() - center;
 				float a = dot(r.direction(), r.direction());
 				float b = dot(oc, r.direction());
@@ -93,6 +129,7 @@ Shader "Unlit/SingleColor"
 						rec.t = temp;
 						rec.p = r.point_at_parameter(rec.t);
 						rec.normal = (rec.p - center) / radius;
+						mat_ptr = mat;
 						return true;
 					}
 					temp = (-b + sqrt(b*b - a*c)) / a;
@@ -100,6 +137,7 @@ Shader "Unlit/SingleColor"
 						rec.t = temp;
 						rec.p = r.point_at_parameter(rec.t);
 						rec.normal = (rec.p - center) / radius;
+						mat_ptr = mat;
 						return true;
 					}
 				}
@@ -108,6 +146,7 @@ Shader "Unlit/SingleColor"
 
 			vec3 center;
 			float radius;
+			lambertian mat;
 		};
 
 		class hitable_list : hitable {
@@ -116,7 +155,7 @@ Shader "Unlit/SingleColor"
 				items[count] = s;
 				count++;
 			}
-			bool hit(ray r, float t_min, float t_max, inout hit_record rec) {
+			bool hit(ray r, float t_min, float t_max, inout hit_record rec, inout lambertian mat_ptr) {
 				hit_record temp_rec;
 				temp_rec.t = 0;
 				temp_rec.p = vec3(0, 0, 0);
@@ -126,7 +165,7 @@ Shader "Unlit/SingleColor"
 				bool hit_anything = false;
 				float closest_so_far = t_max;
 				for (int i = 0; i < count; i++) {
-					if (items[i].hit(r, t_min, closest_so_far, temp_rec)) {
+					if (items[i].hit(r, t_min, closest_so_far, temp_rec, mat_ptr)) {
 						hit_anything = true;
 						closest_so_far = temp_rec.t;
 						rec = temp_rec;
@@ -173,25 +212,34 @@ Shader "Unlit/SingleColor"
 			rec.p = vec3(0, 0, 0);
 			rec.normal = vec3(0, 0, 0);
 			rec.uv = uv;
+			
+			lambertian mat;
+			mat.init(vec3(0, 0, 0));
+
+			ray scattered;
+			scattered.init(rec.p, rec.normal);
+			vec3 attenuation = vec3(0, 0, 0);
+
+			int depth = 0;
 
 			col3 color = background(r);
-			//col3 color = random_in_unit_sphere(uv);
-			int depth = 0;
 			bool done = false;
 			do {
-				if (world.hit(r, 0.001, MAXFLOAT, rec)) {
-					vec3 target = rec.p + rec.normal + random_in_unit_sphere(uv);
-					ray rb;
-					rb.init(rec.p, target - rec.p);
-					r = rb;
-					color *= 0.5;
-					depth++;
+				if (world.hit(r, 0.001, MAXFLOAT, rec, mat)) {
+					if (mat.scatter(r, rec, attenuation, scattered)) {
+						color *= attenuation;
+						r = scattered;
+						depth++;
+					}
+					else {
+						color *= vec3(0, 0, 0);
+					}
 				}
 				else {
 					done = true;
 					return color;
 				}
-			} while (!done && depth < 200);
+			} while (!done && depth < 50);
 			
 			return color;
 			
@@ -205,22 +253,26 @@ Shader "Unlit/SingleColor"
 		
 		hitable_list world;
 		world.init();
+
+		lambertian m;
+		m.init(vec3(1.0, 0.0, 0.0));
+
 		sphere s;
-		s.init(vec3(0, 0, -1), 0.5);
+		s.init(vec3(0, 0, -1), 0.5, m);
 		world.add(s);
-		s.init(vec3(0, -100.5, -1), 100);
+		m.init(vec3(0.0, 1.0, 0.0));
+		s.init(vec3(0, -100.5, -1), 100, m);
 		world.add(s);
 
 		int samples = 70;
 		col3 col = col3(0.0, 0.0, 0.0);
 		for (int sa = 0; sa < samples; sa++ ) {
-			float xr = rand_1_05(i.uv + sa) / 150;
-			float yr = rand_1_05(i.uv + sa + 1) / 150;
+			float xr = rand_1_05(i.uv + sa) / 110;
+			float yr = rand_1_05(i.uv + sa + 1) / 110;
 			ray r = cam.get_ray(i.uv.x + xr, i.uv.y + yr);
 			col += color(r, world, i.uv+sa);
 		}
 		col /= (float)samples;
-		//col = col3(sqrt(col.x), sqrt(col.y), sqrt(col.z));
 
 		return fixed4(col,1);
 		}
