@@ -86,7 +86,19 @@ Shader "Unlit/SingleColor"
 		}
 
 		class material {
-			void init(in vec3 a, in int t) { albedo = a; type = t; }
+			void init(in vec3 a, in int t, float f = 1)
+			{ 
+				albedo = a; 
+				type = t; 
+				if (f < 1) 
+				{ 
+					fuzz = f;
+				} 
+				else 
+				{ 
+					fuzz = 1; 
+				} 
+			}
 			bool scatter(in ray r, inout hit_record rec, inout vec3 attenuation, inout ray scattered) {
 				if(type == 0) {
 					return scatterLam(r, rec, attenuation, scattered);
@@ -111,7 +123,7 @@ Shader "Unlit/SingleColor"
 			bool scatterMet(in ray r_in, inout hit_record rec, inout vec3 attenuation, inout ray scattered) {
 				vec3 reflected = reflect(unit_vector(r_in.direction()), rec.normal);
 				ray s;
-				s.init(rec.p, reflected);
+				s.init(rec.p, reflected + fuzz*random_in_unit_sphere(rec.uv));
 				scattered = s;
 				attenuation = albedo;
 				return (dot(scattered.direction(), rec.normal) > 0);
@@ -119,6 +131,7 @@ Shader "Unlit/SingleColor"
 
 			int type;
 			vec3 albedo;
+			float fuzz;
 		};
 
 		interface hitable {
@@ -275,11 +288,11 @@ Shader "Unlit/SingleColor"
 		s.init(vec3(_SpherePos.x, _SpherePos.y, _SpherePos.z), 0.5, m);
 		world.add(s);
 
-		m.init(vec3(0, 1, 0), 1);
+		m.init(vec3(0.5, 0.5, 0.3), 1, 0.5);
 		s.init(vec3(-1, 0, -1), 0.5, m);
 		world.add(s);
 
-		m.init(vec3(0, 0, 1), 1);
+		m.init(vec3(0, 0, 1), 1, 0);
 		s.init(vec3(1, 0, -1), 0.5, m);
 		world.add(s);
 
