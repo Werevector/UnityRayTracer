@@ -187,7 +187,7 @@ Shader "Unlit/SingleColor"
 			//hitables
 			int		count;
 			int		length;
-			sphere  items[3];
+			sphere  items[4];
 		};
 
 		class camera {
@@ -243,6 +243,7 @@ Shader "Unlit/SingleColor"
 					}
 					else {
 						color *= vec3(0, 0, 0);
+						depth++;
 					}
 				}
 				else {
@@ -268,11 +269,20 @@ Shader "Unlit/SingleColor"
 		world.init();
 
 		material m;
-		m.init(vec3(_SphereCol.x, _SphereCol.y, _SphereCol.z), 1);
+		m.init(vec3(_SphereCol.x, _SphereCol.y, _SphereCol.z), 0);
 
 		sphere s;
 		s.init(vec3(_SpherePos.x, _SpherePos.y, _SpherePos.z), 0.5, m);
 		world.add(s);
+
+		m.init(vec3(0, 1, 0), 1);
+		s.init(vec3(-1, 0, -1), 0.5, m);
+		world.add(s);
+
+		m.init(vec3(0, 0, 1), 1);
+		s.init(vec3(1, 0, -1), 0.5, m);
+		world.add(s);
+
 		m.init(vec3(0.5, 0.5, 0.5), 0);
 		s.init(vec3(0, -100.5, -1), 100, m);
 		world.add(s);

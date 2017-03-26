@@ -11,16 +11,15 @@ public class SceneScript : MonoBehaviour {
         rayMaterial = GetComponent<Renderer>().material;
         
     }
-	
-	// Update is called once per frame
-	void Update () {
+
+    void Update()
+    {
         x += 0.1f;
         Vector4 pos = rayMaterial.GetVector("_SpherePos");
-        //pos.y = (Mathf.Abs((float)Mathf.Sin(x / 1) * 0.5f));
-        pos.y += 0.01f;
+        pos.y = (Mathf.Abs((float)Mathf.Sin(x / 1) * 0.5f));
         //pos.x += 0.03f;
         //if (pos.x > 5.5f)
-            //pos.x = -5.5f;
+        //    pos.x = -5.5f;
         rayMaterial.SetVector("_SpherePos", pos);
     }
 }
