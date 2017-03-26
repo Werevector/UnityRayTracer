@@ -19,6 +19,7 @@ Shader "Unlit/SingleColor"
 		//TYPEDEFS
 		#pragma vertex vert
 		#pragma fragment frag
+
 		typedef vector <float, 3> vec3;
 		typedef vector <float, 2> vec2;
 		typedef vector <fixed, 3> col3;
@@ -84,13 +85,21 @@ Shader "Unlit/SingleColor"
 			return v - 2 * dot(v, n)*n;
 		}
 
-		interface material {
-			bool scatter(in ray r, inout hit_record rec, inout vec3 attenuation, inout ray scattered);
-		};
+		class material {
+			void init(in vec3 a, in int t) { albedo = a; type = t; }
+			bool scatter(in ray r, inout hit_record rec, inout vec3 attenuation, inout ray scattered) {
+				if(type == 0) {
+					return scatterLam(r, rec, attenuation, scattered);
+				}
+				else if (type == 1) {
+					return scatterMet(r, rec, attenuation, scattered);
+				}
+				else {
+					return scatterLam(r, rec, attenuation, scattered);
+				}
+			}
 
-		class lambertian : material {
-			void init(in vec3 a) { albedo = a; }
-			bool scatter(in ray r_in, inout hit_record rec, inout vec3 attenuation, inout ray scattered) {
+			bool scatterLam(in ray r_in, inout hit_record rec, inout vec3 attenuation, inout ray scattered) {
 				vec3 target = rec.p + rec.normal + random_in_unit_sphere(rec.uv);
 				ray s;
 				s.init(rec.p, target - rec.p);
@@ -98,12 +107,8 @@ Shader "Unlit/SingleColor"
 				attenuation = albedo;
 				return true;
 			}
-			vec3 albedo;
-		};
 
-		class metal : material {
-			void init(in vec3 a) { albedo = a; }
-			bool scatter(in ray r_in, inout hit_record rec, inout vec3 attenuation, inout ray scattered) {
+			bool scatterMet(in ray r_in, inout hit_record rec, inout vec3 attenuation, inout ray scattered) {
 				vec3 reflected = reflect(unit_vector(r_in.direction()), rec.normal);
 				ray s;
 				s.init(rec.p, reflected);
@@ -111,16 +116,18 @@ Shader "Unlit/SingleColor"
 				attenuation = albedo;
 				return (dot(scattered.direction(), rec.normal) > 0);
 			}
+
+			int type;
 			vec3 albedo;
 		};
 
 		interface hitable {
-			bool hit(ray r, float t_min, float t_max, inout hit_record rec, inout lambertian mat_ptr);
+			bool hit(ray r, float t_min, float t_max, inout hit_record rec, inout material mat_ptr);
 		};
 
 		class sphere : hitable {
-			void init(vec3 cen, float r, lambertian m) { center = cen; radius = r; mat = m; }
-			bool hit(ray r, float t_min, float t_max, inout hit_record rec, inout lambertian mat_ptr) {
+			void init(vec3 cen, float r, material m) { center = cen; radius = r; mat = m; }
+			bool hit(ray r, float t_min, float t_max, inout hit_record rec, inout material mat_ptr) {
 				vec3 oc = r.origin() - center;
 				float a = dot(r.direction(), r.direction());
 				float b = dot(oc, r.direction());
@@ -149,7 +156,7 @@ Shader "Unlit/SingleColor"
 
 			vec3 center;
 			float radius;
-			lambertian mat;
+			material mat;
 		};
 
 		class hitable_list : hitable {
@@ -158,7 +165,7 @@ Shader "Unlit/SingleColor"
 				items[count] = s;
 				count++;
 			}
-			bool hit(ray r, float t_min, float t_max, inout hit_record rec, inout lambertian mat_ptr) {
+			bool hit(ray r, float t_min, float t_max, inout hit_record rec, inout material mat_ptr) {
 				hit_record temp_rec;
 				temp_rec.t = 0;
 				temp_rec.p = vec3(0, 0, 0);
@@ -206,7 +213,7 @@ Shader "Unlit/SingleColor"
 			float t = 0.5*(unit_direction.y + 1.0);
 			return (1.0 - t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
 		}
-		
+
 		col3 color(ray r, hitable_list world, float2 uv) 
 		{
 			const float MAXFLOAT = 1.7014116317805962808001687976863 * pow(10, 38);
@@ -216,8 +223,8 @@ Shader "Unlit/SingleColor"
 			rec.normal = vec3(0, 0, 0);
 			rec.uv = uv;
 			
-			lambertian mat;
-			mat.init(vec3(0, 0, 0));
+			material mat;
+			mat.init(vec3(0, 0, 0), 0);
 
 			ray scattered;
 			scattered.init(rec.p, rec.normal);
@@ -225,7 +232,7 @@ Shader "Unlit/SingleColor"
 
 			int depth = 0;
 
-			col3 color = background(r);
+			col3 color = background(r);	
 			bool done = false;
 			do {
 				if (world.hit(r, 0.001, MAXFLOAT, rec, mat)) {
@@ -260,18 +267,19 @@ Shader "Unlit/SingleColor"
 		hitable_list world;
 		world.init();
 
-		lambertian m;
-		m.init(vec3(_SphereCol.x, _SphereCol.y, _SphereCol.z));
+		material m;
+		m.init(vec3(_SphereCol.x, _SphereCol.y, _SphereCol.z), 1);
 
 		sphere s;
 		s.init(vec3(_SpherePos.x, _SpherePos.y, _SpherePos.z), 0.5, m);
 		world.add(s);
-		m.init(vec3(0.5, 0.5, 0.5));
+		m.init(vec3(0.5, 0.5, 0.5), 0);
 		s.init(vec3(0, -100.5, -1), 100, m);
 		world.add(s);
 
-		int samples = 70;
+		int samples = 60;
 		col3 col = col3(0.0, 0.0, 0.0);
+		
 		for (int sa = 0; sa < samples; sa++ ) {
 			float xr = rand_1_05(i.uv + sa) / 110;
 			float yr = rand_1_05(i.uv + sa + 1) / 110;
