@@ -8,6 +8,11 @@
 
 Shader "Unlit/SingleColor"
 {
+	Properties
+	{
+		_SpherePos("sphere position", Vector) = (0, 0, -1, 1)
+		_SphereCol("sphere color", Color) = (1,0,0,1)
+	}
 	SubShader{ Pass	{
 		CGPROGRAM
 
@@ -67,8 +72,6 @@ Shader "Unlit/SingleColor"
 			vec3 A;
 			vec3 B;
 		};
-
-
 
 		struct hit_record {
 			float t;
@@ -239,11 +242,14 @@ Shader "Unlit/SingleColor"
 					done = true;
 					return color;
 				}
-			} while (!done && depth < 50);
+			} while (!done && depth < 5);
 			
 			return color;
 			
 		}
+
+		float4 _SpherePos;
+		fixed4 _SphereCol;
 
 		fixed4 frag(v2f i) : SV_Target
 		{
@@ -255,12 +261,12 @@ Shader "Unlit/SingleColor"
 		world.init();
 
 		lambertian m;
-		m.init(vec3(1.0, 0.0, 0.0));
+		m.init(vec3(_SphereCol.x, _SphereCol.y, _SphereCol.z));
 
 		sphere s;
-		s.init(vec3(0, 0, -1), 0.5, m);
+		s.init(vec3(_SpherePos.x, _SpherePos.y, _SpherePos.z), 0.5, m);
 		world.add(s);
-		m.init(vec3(0.0, 1.0, 0.0));
+		m.init(vec3(0.5, 0.5, 0.5));
 		s.init(vec3(0, -100.5, -1), 100, m);
 		world.add(s);
 
