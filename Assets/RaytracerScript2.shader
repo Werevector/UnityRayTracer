@@ -268,11 +268,17 @@ Shader "Unlit/SingleColor"
 			sphere  items[4];
 		};
 
+
 		class camera {
-			void init() {
-				lower_left_corner = vec3(-2.0, -1.0, -1.0);
-				horizontal = vec3(4.0, 0.0, 0.0);
-				vertical = vec3(0.0, 2.0, 0.0);
+			void init(float vfov, float aspect) {
+				float M_PI = 3.141592;
+				float theta = vfov*M_PI / 180;
+				float half_height = tan(theta / 2);
+				float half_width = aspect * half_height;
+				
+				lower_left_corner = vec3(-half_width, -half_height, -1.0);
+				horizontal = vec3(2*half_width, 0.0, 0.0);
+				vertical = vec3(0.0, 2*half_height, 0.0);
 				origin = vec3(0.0, 0.0, 0.0);
 			}
 			ray get_ray(float u, float v) {
@@ -340,32 +346,45 @@ Shader "Unlit/SingleColor"
 
 		fixed4 frag(v2f i) : SV_Target
 		{
-		
+		float M_PI = 3.141592;
+		float R = cos(M_PI / 4);
 		camera cam;
-		cam.init();
+		cam.init(90, 16.f/8.f);
 		
 		hitable_list world;
 		world.init();
 
 		material m;
+		m.init(vec3(0,0,1), 0);
+
+		sphere s;
+		s.init(vec3(-R, 0.0, -1.0), R, m);
+		world.add(s);
+
+		m.init(vec3(1, 0, 0), 0);
+
+		s.init(vec3(R, 0.0, -1.0), R, m);
+		world.add(s);
+
+		/*material m;
 		m.init(_SphereCol, 0);
 
 		sphere s;
 		s.init(_SpherePos, 0.5, m);
-		world.add(s);
+		world.add(s);*/
 
 		//material << (color, type, fuzz(optional))
-		m.init(vec3(1.0, 1.0, 1.0), 1, 0);
+		/*m.init(vec3(0.0, 0.0, 1.0), 1, 0.5);
 		s.init(vec3(-1, 0, -1), 0.5, m);
 		world.add(s);
 
 		m.init(vec3(1, 1, 1), 2);
 		s.init(vec3(1, 0, -1), 0.5, m);
-		world.add(s);
+		world.add(s);*/
 
-		m.init(_FloorCol, 0);
+		/*m.init(_FloorCol, 0);
 		s.init(vec3(0, -100.5, -1), 100, m);
-		world.add(s);
+		world.add(s);*/
 
 		int samples = 60;
 		col3 col = col3(0.0, 0.0, 0.0);
